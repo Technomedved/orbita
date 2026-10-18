@@ -954,9 +954,13 @@ def main():
         payload=json.loads(Path(args.publish_file).read_text(encoding='utf-8-sig'))
         store.publish(payload['title'],payload['body'],payload.get('category','Задачи'),payload.get('dedupe'))
         return
-    mutex=None
+    mutex=None;install_guard=None
     if sys.platform=='win32':
         ctypes.windll.kernel32.CreateMutexW.restype=ctypes.c_void_p
+        # Shared presence marker for Setup/Uninstall; independent profiles still
+        # have their own instance mutex and may run concurrently.
+        install_guard=ctypes.windll.kernel32.CreateMutexW(None,False,windows_integration.INSTALL_GUARD)
+        ctypes.windll.kernel32.SetLastError(0)
         mutex=ctypes.windll.kernel32.CreateMutexW(None,False,windows_integration.instance_name(store.HOME))
         if ctypes.windll.kernel32.GetLastError()==183:
             if not args.background:
@@ -992,6 +996,7 @@ def main():
         QTimer.singleShot(6500,capture)
     app.exec()
     if mutex:ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(mutex))
+    if install_guard:ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(install_guard))
 
 
 if __name__=='__main__':main()

@@ -34,6 +34,13 @@ def package(root=ROOT):
     output=root/'dist/releases';output.mkdir(exist_ok=True)
     portable=output/f'Orbita-{VERSION}-Windows-x64.zip'
     libraries=output/f'Orbita-{VERSION}-library-sources.zip'
+    installer_assets=[]
+    installer=output/f'Orbita-Setup-{VERSION}-Windows-x64.exe'
+    if installer.exists():
+        setup_manifest=json.loads((output/'installer-manifest.json').read_text(encoding='utf-8'))
+        if setup_manifest['source_commit']!=head or setup_manifest['version']!=VERSION or setup_manifest['sha256']!=sha256(installer):
+            raise ValueError('Installer does not match the checked bundle')
+        installer_assets.append(installer)
     inventory=[{'path':p.relative_to(bundle).as_posix(),'bytes':p.stat().st_size,'sha256':sha256(p)}
                for p in sorted(bundle.rglob('*')) if p.is_file()]
     with zipfile.ZipFile(portable,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as archive:
@@ -48,9 +55,10 @@ def package(root=ROOT):
         with zipfile.ZipFile(path) as archive:
             if archive.testzip() is not None:raise ValueError('Archive integrity failure')
     checksums=output/'SHA256SUMS.txt'
-    checksums.write_text(''.join(sha256(p)+'  '+p.name+'\n' for p in (portable,libraries)),encoding='utf-8')
+    assets=[portable,libraries]+installer_assets
+    checksums.write_text(''.join(sha256(p)+'  '+p.name+'\n' for p in assets),encoding='utf-8')
     print(json.dumps({'version':VERSION,'source_commit':head,'files':len(inventory),
-        'assets':[{'name':p.name,'bytes':p.stat().st_size,'sha256':sha256(p)} for p in (portable,libraries)],
+        'assets':[{'name':p.name,'bytes':p.stat().st_size,'sha256':sha256(p)} for p in assets],
         'checksums':checksums.name},indent=2))
     return portable,libraries,checksums
 

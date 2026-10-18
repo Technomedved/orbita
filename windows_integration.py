@@ -4,6 +4,7 @@ import sys
 
 KEY = r'Software\Microsoft\Windows\CurrentVersion\Run'
 NAME = 'Orbita'
+INSTALL_GUARD = r'Local\Orbita.Desktop.InstallGuard'
 
 
 def instance_name(data_path):

@@ -2,7 +2,7 @@
 from pathlib import Path
 import shutil
 
-PUBLIC_DOCS=('START_HERE.md','USER_GUIDE.md','PRIVACY.md','PORTABLE.md','LICENSES.md')
+PUBLIC_DOCS=('START_HERE.md','USER_GUIDE.md','PRIVACY.md','PORTABLE.md','LICENSES.md','INSTALLATION.md')
 PUBLIC_LEGAL=('LICENSE','THIRD_PARTY_NOTICES.md')
 
 
@@ -22,9 +22,9 @@ def copy_public_files(root,destination):
     shutil.copytree(root/'licenses',destination/'licenses',dirs_exist_ok=True)
 
 
-def verify_public_layout(destination):
+def verify_public_layout(destination,public_docs=PUBLIC_DOCS):
     destination=Path(destination)
-    expected=set(PUBLIC_DOCS)|{'MANUAL.md'}
+    expected=set(public_docs)|{'MANUAL.md'}
     actual={p.name for p in (destination/'docs').iterdir()}
     if actual!=expected:raise RuntimeError('Unexpected release documentation: '+repr(actual^expected))
     for name in PUBLIC_LEGAL+('licenses/README.md','licenses/sources.json'):

@@ -56,5 +56,17 @@ class ReleaseTests(unittest.TestCase):
         lines=checksums.read_text(encoding='utf-8').splitlines()
         self.assertEqual(lines,[sha256(portable)+'  '+portable.name,sha256(libraries)+'  '+libraries.name])
 
+    def test_changed_installer_is_rejected_before_writing_release_archives(self):
+        (self.bundle/'release-manifest.json').write_text(json.dumps({'version':VERSION,'source_commit':'fixture','source_dirty':False}))
+        source_dir=self.root/'data/release-sources';source_dir.mkdir(parents=True)
+        source=source_dir/'test.tar.xz';source.write_bytes(b'upstream fixture')
+        (self.bundle/'licenses/sources.json').write_text(json.dumps([{'archive':source.name,'sha256':sha256(source),'official_sha256_verified':True}]))
+        output=self.root/'dist/releases';output.mkdir()
+        (output/f'Orbita-Setup-{VERSION}-Windows-x64.exe').write_bytes(b'changed setup')
+        (output/'installer-manifest.json').write_text(json.dumps({'version':VERSION,'source_commit':'fixture','sha256':'wrong'}))
+        with patch('release_artifacts.subprocess.check_output',return_value='fixture'):
+            with self.assertRaisesRegex(ValueError,'Installer does not match'):package(self.root)
+        self.assertFalse((output/f'Orbita-{VERSION}-Windows-x64.zip').exists())
+
 
 if __name__=='__main__':unittest.main()

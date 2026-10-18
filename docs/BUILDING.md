@@ -81,3 +81,7 @@ Windows-обёртка: `powershell -NoProfile -ExecutionPolicy Bypass -File .\b
 Перед релизной сборкой сохраните исходники коммитом. Затем `python build_desktop.py`, проверки exe и `python release_artifacts.py`. Упаковщик откажет при dirty-сборке, несовпадении HEAD или отсутствии/изменении библиотечных исходников. Результаты: dist/releases, SHA256SUMS.txt. Исходные архивы библиотек публикуются рядом с Windows-архивом; не загружайте только exe.
 
 CI в .github/workflows/checks.yml проверяет ядро на Windows; он не собирает и не публикует приложение и не проверяет desktop UI. Полный локальный набор остаётся отдельной проверкой перед выпуском.
+
+## Установщик · 0.9.2
+
+После чистой desktop-сборки: `python build_installer.py`, затем `python verify_installer_release.py` и `python release_artifacts.py`. Нужен Inno Setup 7.1+ (ORBITA_ISCC или .build-tools/inno). Порядок, AppId, изоляция реальной установки и ограничения: [INSTALLER.md](INSTALLER.md).
