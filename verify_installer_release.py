@@ -30,7 +30,7 @@ def digest(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 def main():
     if sys.platform!='win32':raise SystemExit('Windows only')
     unique='test-'+uuid.uuid4().hex[:12]
-    sandbox=(ROOT/'data/installer-tests'/unique).resolve();sandbox.mkdir(parents=True)
+    sandbox=(ROOT/'data/installer-tests'/('Проверка установки '+unique)).resolve();sandbox.mkdir(parents=True)
     assert sandbox.is_relative_to((ROOT/'data/installer-tests').resolve())
     old=ROOT/'data/backups/before-installer-092/Orbita'
     assert json.loads((old/'release-manifest.json').read_text(encoding='utf-8'))['version']=='0.9.1'
@@ -63,6 +63,10 @@ def main():
     assert get_value(RUN_KEY,startup) is None
     assert (app/'Orbita.exe').is_file() and (app/'unins000.exe').is_file()
     assert (app/'orbita-installation.ini').is_file()
+    buffer=ctypes.create_unicode_buffer(32768)
+    assert ctypes.windll.shell32.SHGetFolderPathW(None,2,None,0,buffer)==0
+    group=Path(buffer.value)/('Orbita Test '+unique)
+    assert (group/'Орбита.lnk').is_file() and (group/'Удалить Орбиту.lnk').is_file()
     env=dict(os.environ,AUTOMATION_HOME=str(profile))
     payload=sandbox/'result.json';payload.write_text(json.dumps({'title':'Сохранённое напоминание','body':'Данные переживают обновление и удаление','dedupe':'setup-keep'}),encoding='utf-8')
     subprocess.run([str(app/'Orbita.exe'),'--publish-file',str(payload)],env=env,check=True,timeout=20)
@@ -97,7 +101,9 @@ def main():
         assert db.execute('SELECT COUNT(*) FROM events').fetchone()[0]==1
     run(app/'unins000.exe','/LOG='+str(sandbox/'uninstall-keep.log'))
     assert (profile/'inbox.sqlite').is_file() and not (app/'Orbita.exe').exists()
-    assert get_value(key,'DisplayVersion') is None and get_value(RUN_KEY,startup) is None
+    assert get_value(key,'DisplayVersion') is None,'Uninstall registry record remains'
+    assert get_value(RUN_KEY,startup) is None,'Owned autostart value remains'
+    assert not (group/'Орбита.lnk').exists(),'Start Menu shortcut remains'
     assert extra.is_file(),'Uninstaller removed an unowned user file'
     extra.unlink()
     if app.exists():app.rmdir()  # nonrecursive; any unexpected remaining file fails verification
@@ -115,7 +121,7 @@ def main():
     assert get_value(key,'DisplayVersion') is None and not (app/'Orbita.exe').exists()
     logs=(sandbox/'install.log').read_text(encoding='utf-8-sig')
     assert 'Administrative install mode: No' in logs
-    report={'version':VERSION,'sandbox':str(sandbox),'non_elevated_account':True,'registry_hkcu_only':True,
+    report={'version':VERSION,'sandbox':str(sandbox),'non_elevated_account':True,'registry_hkcu_only':True,'unicode_paths':True,'start_menu_shortcuts':True,
         'fresh_install':True,'foreign_directory_rejected':True,'running_baseline_upgrade_rejected':True,
         'upgrade_from':'0.9.1','database_unchanged_on_upgrade':True,'obsolete_runtime_removed':True,'unknown_user_file_preserved':True,
         'silent_uninstall_keeps_profile':True,'explicit_test_profile_purge':True,'junction_target_preserved':True,
