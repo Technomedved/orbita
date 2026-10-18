@@ -206,11 +206,15 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var Value, OwnCommand: String;
 begin
   if CurUninstallStep = usPostUninstall then begin
+    Log('Orbita post-uninstall cleanup');
     OwnCommand := '"' + ExpandConstant('{app}\Orbita.exe') + '" --background';
     { Pascal registry functions use an explicit view; match the x64 Python app. }
-    if RegQueryStringValue(HKCU64, 'Software\Microsoft\Windows\CurrentVersion\Run', '{#StartupValue}', Value) then
-      if CompareText(Trim(Value), OwnCommand) = 0 then
+    if RegQueryStringValue(HKCU64, 'Software\Microsoft\Windows\CurrentVersion\Run', '{#StartupValue}', Value) then begin
+      if CompareText(Trim(Value), OwnCommand) = 0 then begin
         RegDeleteValue(HKCU64, 'Software\Microsoft\Windows\CurrentVersion\Run', '{#StartupValue}');
+        Log('Owned Orbita startup entry removed');
+      end;
+    end else Log('No Orbita startup entry found in native registry view');
     if PurgeProfile then begin
       { The target is recomputed and must exactly equal the single selected default profile.
         Inno DelTree removes reparse points themselves and never traverses their targets. }

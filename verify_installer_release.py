@@ -46,6 +46,14 @@ def main():
     def run(executable,*args,success=True):
         result=subprocess.run([str(executable),'/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',*map(str,args)],timeout=45)
         assert (result.returncode==0)==success,(Path(executable).name,args,result.returncode)
+        if Path(executable).name.startswith('unins') and success:
+            log_name=next(str(a).split('=',1)[1] for a in args if str(a).upper().startswith('/LOG='))
+            deadline=time.monotonic()+20
+            while time.monotonic()<deadline:
+                log=Path(log_name)
+                if log.exists() and 'Log closed.' in log.read_text(encoding='utf-8-sig',errors='replace'):break
+                time.sleep(.05)
+            else:raise AssertionError('Second-phase uninstall did not finish')
         results.append({'program':Path(executable).name,'args':list(map(str,args)),'exit_code':result.returncode})
     def get_value(path,name,root=winreg.HKEY_CURRENT_USER):
         try:
