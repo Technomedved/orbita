@@ -35,7 +35,7 @@ class ProjectTests(unittest.TestCase):
         projects.edit_step(key,record['steps'][0]['id'],done=True)
         projects.add_link(key,'Модель','https://example.com/model')
         script="import json,project_service as p;print(json.dumps(p.get('"+key+"'),ensure_ascii=False))"
-        result=subprocess.run([sys.executable,'-c',script],cwd=Path(__file__).parent,env=dict(os.environ,AUTOMATION_HOME=self.temp.name),capture_output=True,encoding='utf-8',timeout=10)
+        result=subprocess.run([sys.executable,'-X','utf8','-c',script],cwd=Path(__file__).parent,env=dict(os.environ,AUTOMATION_HOME=self.temp.name),capture_output=True,encoding='utf-8',timeout=10)
         self.assertEqual(result.returncode,0,result.stderr)
         loaded=json.loads(result.stdout);self.assertEqual(loaded['notes'],'Отверстия 4 мм\nПроверить посадку')
         self.assertEqual(loaded['steps'][0]['done'],1);self.assertEqual(loaded['links'][0]['url'],'https://example.com/model')
