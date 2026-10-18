@@ -786,6 +786,9 @@ class Window(QWidget):
         text=label('Личные автоматизации, проекты и обучение. Данные сохраняются на этом устройстве.',14);text.setWordWrap(True);box.addWidget(text)
         box.addWidget(btn('Руководство',self.help));box.addWidget(btn('Папка программы',lambda:self.open_folder(program_dir())))
         box.addWidget(btn('Документы приложения',lambda:self.open_folder(docs_dir())))
+        legal=label('Код Орбиты: MIT. Qt / PySide6 / Shiboken: LGPLv3. Условия сторонних компонентов и исходники библиотек доступны в документации.',12)
+        legal.setWordWrap(True);box.addWidget(legal)
+        box.addWidget(btn('Лицензии и исходники библиотек',lambda:self.open_folder(program_dir()/'licenses')))
         box.addStretch();box.addWidget(btn('Закрыть',win.close));win.show()
 
     def settings(self):

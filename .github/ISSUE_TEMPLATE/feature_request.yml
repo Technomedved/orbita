@@ -1,0 +1,20 @@
+name: Предложение
+description: Предложить полезное изменение Орбиты
+title: "[Предложение] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Какую задачу нужно решить?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Какого поведения вы ожидаете?
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Как вы решаете эту задачу сейчас?

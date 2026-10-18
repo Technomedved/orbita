@@ -15,10 +15,17 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'PIL', 'numpy', 'pandas', 'matplotlib', 'scipy'],
+    excludes=['tkinter', 'PIL', 'numpy', 'pandas', 'matplotlib', 'scipy',
+              'PySide6.QtVirtualKeyboard', 'PySide6.QtPdf', 'PySide6.QtPdfWidgets',
+              'PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets', 'PySide6.QtWebEngineQuick'],
     noarchive=False,
     optimize=0,
 )
+# QtGui's generic plugin discovery otherwise includes unused Virtual Keyboard
+# (GPL-only for open-source users) and the PDF image plugin. The application
+# does not use either. Filter native transitive binaries as well as bindings.
+blocked = ('virtualkeyboard', 'qt6pdf', 'qpdf.dll', 'qpdf.so', 'qpdf.dylib')
+a.binaries = [entry for entry in a.binaries if not any(part in entry[0].lower() for part in blocked)]
 pyz = PYZ(a.pure)
 
 exe = EXE(
@@ -30,7 +37,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -43,7 +50,7 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name='Orbita',
 )

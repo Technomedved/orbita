@@ -8,3 +8,5 @@
 *.vbs text eol=crlf
 *.png binary
 *.ico binary
+# Preserve upstream notices verbatim, including their whitespace and line ends.
+licenses/** -text -whitespace
