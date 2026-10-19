@@ -8,6 +8,10 @@ dist/
 data/
 *.spec
 *.sqlite*
+*.orbita.zip
+.backup-device.json
+.auto-backups.json
+.restore/
 .env
 
 !Orbita.spec

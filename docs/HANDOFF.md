@@ -2,9 +2,28 @@
 
 ## Данные и восстановление · 0.9.3
 
+Выпуск: https://github.com/Technomedved/orbita/releases/tag/v0.9.3 .
+Бинарный тег/manifest: `2563d6c637bd97c35de72a518bd6bfc8f0ffbf95`.
+Успешный CI: https://github.com/Technomedved/orbita/actions/runs/39207911061 .
+200 desktop-проверок прошли, без ошибок/пропусков (59,25 с). Есть реальные
+os._exit-проверки восстановления, отказ очистки и независимые профили с
+совпавшими run IDs. Native UI/CLI/gate и переносимый пакет проверены. Рабочий
+профиль обновлён 8 → 9: прежние записи всех таблиц, кроме ожидаемых новых
+служебных данных/revision, совпали с контрольной копией; новый формат архива
+для текущего профиля создан и проверен. Установленная версия открыта через --data.
+После тега меняются только документация и исключения личных архивов из Git.
+
+Отчёты: data/backup-release-verification.json,
+data/distribution-release-verification.json,
+data/user-profile-093-migration-verification.json,
+data/public-release-093-verification.json. Изолированный installer-стенд с
+baseline 0.9.2 выполнен на сборке этого этапа до последнего изменения
+profile identity; окончательный production setup проверен реальным обновлением
+0.9.2 и сравнением данных. Это одна Windows 11 x64, не чистая VM.
+
 Реализованы backup_service/profile_access/profile_recovery/health_service/data_ui.
 Контракты и ограничения — [BACKUPS.md](BACKUPS.md). Схема 9 добавляет
-publication_receipts и выключенный шаблон profile-backup, с проверенной копией
+publication_receipts, переносимый profile_uuid и выключенный шаблон profile-backup, с проверенной копией
 перед миграцией. UI: настройки → данные/резервные копии/состояние. Восстановление
 закрывает редакторы и RevisionReader, останавливает engine/workers, затем
 использует EXCLUSIVE gate и transactional SQLite backup в тот же файл;
