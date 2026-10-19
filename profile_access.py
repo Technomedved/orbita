@@ -5,6 +5,7 @@ Maintenance takes an exclusive transaction. OS process death releases the lock.
 """
 from contextlib import contextmanager, closing
 from pathlib import Path
+import json
 import sqlite3
 import threading
 
@@ -25,17 +26,23 @@ def access(home, exclusive=False):
         # No DDL under other readers after initialization.
         if not db.execute("SELECT 1 FROM sqlite_master WHERE name='gate'").fetchone():
             db.execute('CREATE TABLE IF NOT EXISTS gate(id INTEGER PRIMARY KEY)')
+        recovery_attempted=False
         while True:
             db.execute('BEGIN EXCLUSIVE' if exclusive else 'BEGIN')
             db.execute('SELECT id FROM gate').fetchall()
             pending=(home/'.restore/journal.json').exists()
-            if pending and not exclusive:
+            committed=False
+            if pending and recovery_attempted:
+                journal=json.loads((home/'.restore/journal.json').read_text(encoding='utf-8'))
+                committed=journal.get('format')==1 and journal.get('phase')=='committed'
+            if pending and not exclusive and not committed:
                 db.rollback()
                 with access(home,True):pass
+                recovery_attempted=True
                 continue
             held=dict(held);held[key]=exclusive;_local.held=held
             try:
-                if pending:
+                if pending and exclusive:
                     from profile_recovery import recover_locked
                     recover_locked(home)
                 yield

@@ -37,7 +37,8 @@ def cleanup(home):
     if folder.is_symlink() or folder.is_junction():raise ValueError('Recovery directory must not be a link')
     # Fixed own files only, never recursively remove an arbitrary directory.
     for name in ('journal.json','journal.writing','previous.sqlite','incoming.sqlite'):
-        (folder/name).unlink(missing_ok=True)
+        try:(folder/name).unlink(missing_ok=True)
+        except OSError:pass # committed cleanup can be retried; data is already consistent
     try:folder.rmdir()
     except OSError:pass
 
@@ -52,4 +53,7 @@ def recover_locked(home):
         check_database(folder/'previous.sqlite')
         database_copy(folder/'previous.sqlite',home/'inbox.sqlite')
         check_database(home/'inbox.sqlite')
+        # If cleanup is temporarily blocked, never roll back later user writes
+        # again on the next shared access. Recovery itself is now committed.
+        write_json(folder/'journal.json',{'format':1,'phase':'committed'})
     cleanup(home)

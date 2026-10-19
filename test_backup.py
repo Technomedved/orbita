@@ -118,6 +118,27 @@ class BackupTests(unittest.TestCase):
         with self.assertRaises(OSError):backups.restore(self.home,path,checkpoint=fail)
         self.assertEqual(len(store.events()),1);self.assertFalse((self.home/'.restore/journal.json').exists())
 
+    def test_cleanup_failure_does_not_repeat_rollback_or_lose_new_writes(self):
+        store.publish('Snapshot','Body');path=self.backup();store.publish('Current','Body')
+        unlink=Path.unlink
+        def locked(file,*args,**kwargs):
+            if file.name=='journal.json' and file.parent.name=='.restore':raise PermissionError('Locked by scanner')
+            return unlink(file,*args,**kwargs)
+        for rollback in (False,True):
+            before=len(store.events())
+            def checkpoint(phase):
+                if rollback and phase=='applied':raise OSError('Injected failure')
+            with patch.object(Path,'unlink',new=locked):
+                if rollback:
+                    with self.assertRaises(OSError):backups.restore(self.home,path,checkpoint=checkpoint)
+                    expected=before
+                else:backups.restore(self.home,path);expected=1
+                self.assertEqual(len(store.events()),expected)
+                store.publish('After cleanup problem','Body')
+                self.assertEqual(len(store.events()),expected+1)
+            self.assertEqual(len(store.events()),expected+1)
+            self.assertFalse((self.home/'.restore/journal.json').exists())
+
     def test_process_death_recovered_before_next_publisher(self):
         path=self.backup();store.publish('Keep through crash','Body')
         script="""import os,sys,desktop_store as s,backup_service as b
