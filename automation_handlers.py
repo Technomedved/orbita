@@ -69,4 +69,11 @@ def learning_result(task,now):
                   target='lesson:db2:'+item['id'],notification_key='learning-db2-'+item['id'],coalesce=True)
 
 
-HANDLERS = {'weather':weather_result,'reminder':reminder_result,'audit':audit_result,'learning':learning_result}
+def backup_result(task,now):
+    from backup_service import create
+    create(store.HOME,task['config'].get('folder',''),automatic=True,keep=task['config'].get('keep',7))
+    return Result('Резервная копия создана','Профиль сохранён и проверен. Папка и результат доступны в настройках данных.',
+                  'Система','Проверенная резервная копия',target='data:backups',notification_key='backup-success-'+str(now.date()),coalesce=True)
+
+
+HANDLERS = {'weather':weather_result,'reminder':reminder_result,'audit':audit_result,'learning':learning_result,'backup':backup_result}

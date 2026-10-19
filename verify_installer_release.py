@@ -32,9 +32,10 @@ def main():
     unique='test-'+uuid.uuid4().hex[:12]
     sandbox=(ROOT/'data/installer-tests'/('Проверка установки '+unique)).resolve();sandbox.mkdir(parents=True)
     assert sandbox.is_relative_to((ROOT/'data/installer-tests').resolve())
-    old=ROOT/'data/backups/before-installer-092/Orbita'
-    assert json.loads((old/'release-manifest.json').read_text(encoding='utf-8'))['version']=='0.9.1'
-    baseline=compile_installer(bundle=old,version='0.9.1',test_root=sandbox,test_id=unique,output=sandbox/'artifacts',output_name='Baseline')
+    old=ROOT/'data/backups/before-data-093/Orbita'
+    old_version=json.loads((old/'release-manifest.json').read_text(encoding='utf-8'))['version']
+    assert old_version=='0.9.2'
+    baseline=compile_installer(bundle=old,version=old_version,test_root=sandbox,test_id=unique,output=sandbox/'artifacts',output_name='Baseline')
     current=compile_installer(test_root=sandbox,test_id=unique,output=sandbox/'artifacts',output_name='Upgrade')
     app=sandbox/'program';profile=sandbox/'profile';key=r'Software\Microsoft\Windows\CurrentVersion\Uninstall\Technomedved.Orbita.Test.'+unique+'_is1'
     startup='Orbita-Test-'+unique;results=[]
@@ -66,7 +67,7 @@ def main():
     run(current,'/DIR='+str(foreign),success=False);assert sentinel.read_text()=='user file'
     assert get_value(key,'InstallLocation') is None
     run(baseline,'/LOG='+str(sandbox/'install.log'))
-    assert get_value(key,'DisplayVersion')=='0.9.1'
+    assert get_value(key,'DisplayVersion')==old_version
     assert get_value(key,'DisplayVersion',winreg.HKEY_LOCAL_MACHINE) is None
     assert get_value(RUN_KEY,startup) is None
     assert (app/'Orbita.exe').is_file() and (app/'unins000.exe').is_file()
@@ -131,7 +132,7 @@ def main():
     assert 'Administrative install mode: No' in logs
     report={'version':VERSION,'sandbox':str(sandbox),'non_elevated_account':True,'registry_hkcu_only':True,'unicode_paths':True,'start_menu_shortcuts':True,
         'fresh_install':True,'foreign_directory_rejected':True,'running_baseline_upgrade_rejected':True,
-        'upgrade_from':'0.9.1','database_unchanged_on_upgrade':True,'obsolete_runtime_removed':True,'unknown_user_file_preserved':True,
+        'upgrade_from':old_version,'database_unchanged_on_upgrade':True,'obsolete_runtime_removed':True,'unknown_user_file_preserved':True,
         'silent_uninstall_keeps_profile':True,'explicit_test_profile_purge':True,'junction_target_preserved':True,
         'owned_autostart_removed':True,'foreign_autostart_preserved':True,'runs':results,
         'limits':'Same non-elevated Windows 11 account; isolated compiled test AppId/profile. GUI data-removal confirmation and other Windows accounts are not exercised by this silent test.'}

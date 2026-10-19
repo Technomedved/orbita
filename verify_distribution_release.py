@@ -40,7 +40,7 @@ def main():
         assert db.execute('PRAGMA integrity_check').fetchone()[0]=='ok'
         for table in ('events','runs','projects','learning_progress','learning_profiles'):
             assert db.execute('SELECT COUNT(*) FROM '+table).fetchone()[0]==0,table
-        tasks=list(db.execute('SELECT id,name,enabled,schedule FROM tasks'));assert len(tasks)==3
+        tasks=list(db.execute('SELECT id,name,enabled,schedule FROM tasks'));assert len(tasks)==4
         weather=next(t for t in tasks if t[0]=='weather')
         assert weather[1]=='Отчёт о погоде' and json.loads(weather[3])['days']==list(range(7))
         assert not any(t[2] for t in tasks)

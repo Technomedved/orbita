@@ -37,6 +37,7 @@ import location_service as locations
 from location_ui import LocationDialog,StartupLocationRefresh
 from onboarding_ui import WelcomeDialog,system_timezone
 import preferences_service as preferences
+from data_ui import DataDialog,DraftBridge
 
 
 def condition(code, daylight=True):
@@ -289,7 +290,9 @@ class Window(QWidget):
         self.resize(min(670,area.width()-40),min(890,area.height()-40))
         self.setMinimumSize(540,480)
         self.move(area.left()+35,area.top()+20)
-        self.engine=Engine()
+        self.maintenance=False;self.data_dialog=None;self.restart_requested=False
+        self.draft_bridge=DraftBridge(self)
+        self.engine=Engine(before_backup=self.draft_bridge.wait)
         self.revision_reader=store.RevisionReader()
         self.has_pending=True
         self.quitting=False; self.shutdown_thread=None
@@ -513,7 +516,7 @@ class Window(QWidget):
         self.tasks_layout.addWidget(controls)
         self.tasks_layout.addWidget(label(f'Показано {min(len(tasks),self.tasks_visible_count)} из {len(tasks)}',12))
         descriptions={'weather':'Почасовой прогноз выбранного места','reminder':'Личное напоминание','audit':'Обзор реальных журналов за 7 дней',
-                      'learning':'Диагностика и практика Db2 · продолжение текущего занятия'}
+                      'learning':'Диагностика и практика Db2 · продолжение текущего занятия','backup':'Согласованный снимок профиля и проверка архива'}
         states={'running':'Выполняется','retry':'Ожидает повтора','queued':'В очереди','failed':'Ошибка',
                 'success':'Готово','skipped':'Пропущено по правилам','cancelled':'Отменено'}
         now=datetime.now(store.LOCAL)
@@ -602,18 +605,21 @@ class Window(QWidget):
         text.setPlainText('\n\n'.join(f"{store.display_time(r['scheduled_at']):%d.%m %H:%M} · {r['status']} · попыток {r['attempts']}\n{r['summary'] or ''}\n{r['error'] or ''}" for r in rows) or 'Запусков ещё нет.')
         box.addWidget(text); box.addWidget(btn('Закрыть',win.close)); win.show()
 
-    def edit_task(self,task=None,day_offset=0):
+    def edit_task(self,task=None,day_offset=0,parent=None):
         if isinstance(task,bool):task=None
         now=datetime.now(self.display_zone)
         default=(now+timedelta(days=day_offset)).replace(hour=9,minute=0,second=0,microsecond=0) if day_offset else now+timedelta(hours=1)
         task=deepcopy(task) if task else new_task('Новое напоминание','reminder',{'type':'once','at':default.isoformat(),'timezone':store.timezone_name()})
         win=self.dialog('Настройка автоматизации',600); win.resize(600,min(700,self.screen().availableGeometry().height()-60))
+        if parent:win.setParent(parent,win.windowFlags())
         root=QVBoxLayout(win);scroll=QScrollArea();scroll.setObjectName('taskEditorScroll');scroll.setWidgetResizable(True)
         content=QWidget();layout=QVBoxLayout(content);layout.setContentsMargins(4,4,12,4);form=QFormLayout();form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         scroll.setWidget(content);root.addWidget(scroll,1)
         name=QLineEdit(task['name']); form.addRow('Название',name)
         body=QTextEdit(task['config'].get('body','')); body.setFixedHeight(85)
         if task['kind']=='reminder' and not task['config'].get('project_id'):form.addRow('Текст',body)
+        elif task['kind']=='backup':
+            note=label('Папка и лимит задаются в «Данные и резервные копии». Сначала сохраните их там, затем включите расписание.',12);note.setWordWrap(True);form.addRow(note)
         elif task['config'].get('project_id'):form.addRow(label('Текст берётся из следующего шага связанного проекта.',12))
         repeat=QComboBox(); repeat.addItems(['Один раз','Каждый день','По выбранным дням','Еженедельно'])
         spec=task['schedule']; index=0 if spec['type']=='once' else 3 if spec['type']=='weekly' else 1 if spec.get('days')==list(range(7)) else 2
@@ -716,6 +722,7 @@ class Window(QWidget):
     def open_event(self,row):
         store.mark_seen(row['id']); self.redraw()
         target=row.get('target') or ''
+        if target=='data:backups':self.open_data();return
         if target=='course:db2':
             self.reveal(); self.switch_page(3); return
         if target.startswith('lesson:db2:'):
@@ -794,6 +801,7 @@ class Window(QWidget):
     def settings(self):
         win=self.dialog('Настройки Орбиты',570); layout=QVBoxLayout(win); layout.setContentsMargins(25,25,25,25)
         layout.addWidget(label('Настройки',24,'#f1f6ff',True))
+        layout.addWidget(btn('Данные, резервные копии и состояние…',self.open_data))
         layout.addWidget(btn('Местоположение и часы погоды',self.configure_location))
         zone=QComboBox();zone.setObjectName('profileTimezone');zone.setEditable(True);zone.addItems(sorted(available_timezones()));zone.setCurrentText(store.timezone_name())
         zone.setEnabled(not bool(self.location_profile));layout.addWidget(zone)
@@ -900,10 +908,27 @@ class Window(QWidget):
         self.status.setText('●  Автоматизации на паузе' if paused else '●  Не беспокоить · задачи работают' if quiet else '●  Автоматизации работают')
 
     def save_geometry(self):
+        if self.maintenance:return
         if not self.isMinimized():store.set_setting('window_geometry',[self.x(),self.y(),self.width(),self.height()])
+
+    def flush_drafts(self):
+        for dialog in list(self.learning_dialogs.values())+list(self.project_dialogs.values()):
+            if not dialog.flush():return False
+        self.save_geometry()
+        return True
+
+    def open_data(self):
+        if self.data_dialog:
+            self.data_dialog.showNormal();self.data_dialog.raise_();self.data_dialog.activateWindow();return
+        self.data_dialog=DataDialog(self)
+        self.data_dialog.destroyed.connect(lambda:setattr(self,'data_dialog',None));self.data_dialog.show()
 
     def quit_app(self):
         if self.quitting:return
+        if self.data_dialog and self.data_dialog.busy:
+            self.open_data();return
+        if self.maintenance:
+            self.quitting=True;self.tray.hide();QApplication.instance().quit();return
         for dialog in list(self.learning_dialogs.values())+list(self.project_dialogs.values()):
             if not dialog.flush():
                 self.reveal(); dialog.showNormal(); dialog.raise_(); dialog.activateWindow()
@@ -921,6 +946,7 @@ class Window(QWidget):
         self.shutdown_poll.timeout.connect(check); self.shutdown_poll.start(100)
 
     def closeEvent(self,event):
+        if self.maintenance:event.ignore();return
         self.save_geometry()
         if self.quitting:event.accept(); return
         if QSystemTrayIcon.isSystemTrayAvailable():self.hide()
@@ -937,6 +963,7 @@ def main():
     parser.add_argument('--learning',action='store_true',help='Open the learning overview')
     parser.add_argument('--projects',action='store_true',help='Open the projects overview')
     parser.add_argument('--tomorrow',action='store_true',help='Open the next-day overview')
+    parser.add_argument('--data',action='store_true',help='Open backups and application health')
     parser.add_argument('--open-project',help='Open a local project by its stable identifier')
     parser.add_argument('--open-lesson',help='Open an IBM Db2 lesson by its stable identifier')
     parser.add_argument('--location-setup',action='store_true',help='Open location configuration')
@@ -978,6 +1005,7 @@ def main():
     if args.learning:window.switch_page(3)
     if args.projects:window.switch_page(4)
     if args.tomorrow:window.switch_page(5)
+    if args.data:window.open_data()
     if args.open_lesson:window.open_learning(args.open_lesson)
     if args.open_project:
         try:window.open_project(args.open_project)
@@ -985,18 +1013,22 @@ def main():
     window.location_prompt_on_reveal=args.background
     if args.welcome:QTimer.singleShot(100,window.show_welcome)
     elif args.location_setup:QTimer.singleShot(100,window.configure_location)
-    elif not args.background and not args.capture and not args.smoke_test:QTimer.singleShot(350,window.offer_location_setup)
+    elif not args.background and not args.capture and not args.smoke_test and not args.data:QTimer.singleShot(350,window.offer_location_setup)
     if args.smoke_test:
         QTimer.singleShot(7000,window.quit_app)
     if args.capture:
         def capture():
-            target=window.welcome_dialog or window.location_dialog or window.project_dialogs.get(args.open_project) or window.learning_dialogs.get(args.open_lesson,window)
+            target=window.data_dialog or window.welcome_dialog or window.location_dialog or window.project_dialogs.get(args.open_project) or window.learning_dialogs.get(args.open_lesson,window)
             target.grab().save(args.capture)
             window.quit_app()
         QTimer.singleShot(6500,capture)
     app.exec()
     if mutex:ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(mutex))
     if install_guard:ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(install_guard))
+    if window.restart_requested:
+        import os,subprocess
+        command=[sys.executable] if getattr(sys,'frozen',False) else [sys.executable,str(Path(__file__).with_name('orbita_entry.py'))]
+        subprocess.Popen(command,env=dict(os.environ,AUTOMATION_HOME=str(store.HOME)))
 
 
 if __name__=='__main__':main()

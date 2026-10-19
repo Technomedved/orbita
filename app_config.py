@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import sys
 
-VERSION='0.9.2'
+VERSION='0.9.3'
 # Stable storage offset: preserves existing ISO timestamps and deduplication keys.
 # Calendar schedules and displayed times use an explicit IANA timezone instead.
 LOCAL=timezone(timedelta(hours=5))

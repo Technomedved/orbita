@@ -11,7 +11,10 @@ TEMPLATES=[
          policy='latest',grace_seconds=604800,max_attempts=2,retry_seconds=300),
     dict(id='learning-db2',name='Практика Db2',kind='learning',enabled=False,
          schedule={'type':'daily','time':'19:30','days':[1,3]},config={'course_id':'db2'},
-         policy='latest',grace_seconds=604800,max_attempts=1,retry_seconds=300)]
+         policy='latest',grace_seconds=604800,max_attempts=1,retry_seconds=300),
+    dict(id='profile-backup',name='Резервная копия профиля',kind='backup',enabled=False,
+         schedule={'type':'daily','time':'20:00','days':list(range(7))},config={'folder':'','keep':7},
+         policy='latest',grace_seconds=86400,max_attempts=2,retry_seconds=300)]
 
 
 def templates(timezone='UTC'):

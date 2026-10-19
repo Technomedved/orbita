@@ -8,13 +8,19 @@ from datetime import datetime,timedelta
 
 from app_config import LOCAL,data_home,timezone_from_settings
 from automation_defaults import templates,WEATHER_NAME
+from profile_access import access
 HOME = data_home()
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 _schema_lock = threading.RLock()
 _initialized = set()
 
 
 def initialize():
+    with access(HOME):
+        _initialize()
+
+
+def _initialize():
     """Transactional, versioned migration; SQLite backup made before any schema changes."""
     path_key = str(HOME.resolve())
     if path_key in _initialized and (HOME / 'inbox.sqlite').exists(): return
@@ -45,6 +51,8 @@ def initialize():
                 title TEXT NOT NULL,body TEXT NOT NULL,category TEXT NOT NULL,created TEXT NOT NULL,
                 seen INTEGER NOT NULL DEFAULT 0,dedupe TEXT UNIQUE)''')
             db.execute('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY,value TEXT NOT NULL)')
+            db.execute('CREATE TABLE IF NOT EXISTS publication_receipts(dedupe TEXT PRIMARY KEY)')
+            db.execute('INSERT OR IGNORE INTO publication_receipts SELECT dedupe FROM events WHERE dedupe IS NOT NULL')
             columns = {row[1] for row in db.execute('PRAGMA table_info(events)')}
             for name, definition in [('task_id','TEXT'),('run_id','INTEGER'),
                                      ('action_state',"TEXT NOT NULL DEFAULT ''"),('root_id','INTEGER'),
@@ -148,6 +156,13 @@ def initialize():
 
 @contextmanager
 def connect():
+    with access(HOME):
+        with _connect() as db:
+            yield db
+
+
+@contextmanager
+def _connect():
     initialize()
     db = sqlite3.connect(HOME / 'inbox.sqlite', timeout=10)
     db.row_factory = sqlite3.Row
@@ -162,6 +177,8 @@ def publish(title, body, category='Задачи', dedupe=None):
     if not title.strip() or not body.strip():
         raise ValueError('Title and body must not be empty')
     with connect() as db:
+        if dedupe is not None:
+            if not db.execute('INSERT OR IGNORE INTO publication_receipts VALUES(?)',(dedupe,)).rowcount:return None
         row = db.execute('INSERT OR IGNORE INTO events(title,body,category,created,dedupe) VALUES(?,?,?,?,?)',
                          (title, body, category, datetime.now(LOCAL).isoformat(), dedupe))
         return row.lastrowid if row.rowcount else None
@@ -227,7 +244,8 @@ class RevisionReader:
         self.db=sqlite3.connect(HOME/'inbox.sqlite',timeout=5)
 
     def value(self):
-        return self.db.execute('SELECT value FROM revision WHERE id=1').fetchone()[0]
+        with access(HOME):
+            return self.db.execute('SELECT value FROM revision WHERE id=1').fetchone()[0]
 
     def close(self):
         self.db.close()
@@ -245,12 +263,15 @@ def tasks():
 def save_task(task):
     from automation_models import validate_schedule
     validate_schedule(task['schedule'])
-    if task['kind'] not in ('weather','reminder','audit','learning') or not task['name'].strip():
+    if task['kind'] not in ('weather','reminder','audit','learning','backup') or not task['name'].strip():
         raise ValueError('Invalid task')
     if task['policy'] not in ('skip','latest') or not 1 <= task['max_attempts'] <= 5:
         raise ValueError('Invalid retry policy')
     if not 0 <= task['grace_seconds'] <= 31536000 or not 1 <= task['retry_seconds'] <= 86400:
         raise ValueError('Invalid schedule limits')
+    if task['kind']=='backup' and task['enabled']:
+        from backup_service import validate_destination
+        validate_destination(task['config'].get('folder',''),HOME)
     with connect() as db:
         if task['enabled'] and task['config'].get('project_id'):
             project=db.execute('SELECT state,reminder_task_id FROM projects WHERE id=?',(task['config']['project_id'],)).fetchone()

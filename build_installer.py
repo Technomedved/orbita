@@ -20,6 +20,7 @@ def compile_installer(bundle=None,output=None,version=VERSION,test_root=None,tes
     # Only the historical, already checked payload in an isolated test build
     # may use its original documentation layout.
     documents=tuple(name for name in PUBLIC_DOCS if name!='INSTALLATION.md') if test_root and manifest['version']=='0.9.1' else PUBLIC_DOCS
+    if test_root and manifest['version'] in ('0.9.1','0.9.2'):documents=tuple(name for name in documents if name!='BACKUPS.md')
     verify_public_layout(bundle,public_docs=documents)
     if not test_root and (manifest['version']!=version or manifest.get('source_dirty',True)):
         raise ValueError('Installer requires a clean bundle matching the release version')

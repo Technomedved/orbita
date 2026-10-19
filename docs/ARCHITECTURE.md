@@ -1,5 +1,14 @@
 # Архитектура
 
+## Резервирование и обслуживание (0.9.3)
+
+`backup_service.py` и `profile_recovery.py` управляют архивом и восстановлением;
+`profile_access.py` отделяет межпроцессный SQLite gate от интерфейса;
+`health_service.py` строит read model/обезличенный отчёт. Qt-адаптер — data_ui.py.
+Store.initialize/connect и RevisionReader.value держат shared gate; restore —
+exclusive. GUI перед заменой закрывает соединения/редакторы, ждёт engine/workers,
+а после успеха перезапускается. Подробные протоколы: [BACKUPS.md](BACKUPS.md).
+
 ## Общая поставка (0.9.0)
 
 `automation_defaults.py` — выключенные стандартные шаблоны; `preferences_service.py` — portable-настройки первого запуска; `onboarding_ui.py` — Qt welcome и системный IANA-пояс. `app_config.timezone_from_settings` объединяет правило пояса интерфейса для UI/Today/Agenda: выбранное место, иначе user_timezone, иначе UTC. Существующие задачи имеют собственный пояс и не переписываются общей настройкой.

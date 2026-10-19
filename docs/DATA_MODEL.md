@@ -1,6 +1,6 @@
 # Данные и миграции
 
-SQLite: `inbox.sqlite`, текущая схема **8** (`PRAGMA user_version`). Каталог выбирается `app_config.data_home()`:
+SQLite: `inbox.sqlite`, текущая схема **9** (`PRAGMA user_version`). Каталог выбирается `app_config.data_home()`:
 
 | Среда | Каталог |
 |---|---|
@@ -15,6 +15,7 @@ SQLite: `inbox.sqlite`, текущая схема **8** (`PRAGMA user_version`).
 |---|---|
 | `events` | `id`, `title`, `body`, `category`, `created`, `seen`, `dedupe UNIQUE`, `task_id`, `run_id`, `action_state`, `root_id`, `delivered`, `target` |
 | `settings` | `key PRIMARY KEY`, JSON `value`; геометрия, закрепление, пауза, тихий режим, снимок погоды |
+| `publication_receipts` | `dedupe PRIMARY KEY`; сохраняет ключи уже принятых JSON-публикаций, включая защиту после восстановления ранней копии |
 | `tasks` | Строковый `id`, имя, `kind`, `enabled`, JSON `schedule/config`, `policy`, срок актуальности, лимиты повторов, `created` |
 | `runs` | Числовой `id`, `task_id`, `slot`, `scheduled_at`, статус, попытки, времена, аренда, владелец, ошибка/сводка, число восстановлений; UNIQUE(`task_id`,`slot`) |
 | `snoozes` | `id`, `root_id`, `event_id`, `due`, статус; отложенная доставка конкретного напоминания |

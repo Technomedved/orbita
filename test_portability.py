@@ -36,6 +36,7 @@ class Block(importlib.abc.MetaPathFinder):
             raise RuntimeError('Forbidden platform dependency: '+fullname)
 sys.meta_path.insert(0,Block())
 import app_config,automation_models,automation_engine,project_service,learning_service,today_service,agenda_service,weather_service
+import backup_service,health_service,profile_access,profile_recovery
 engine=automation_engine.Engine(inline=True);engine.tick()
 project_service.create('Portable core')
 assert today_service.snapshot()['counts']['active_projects']==1

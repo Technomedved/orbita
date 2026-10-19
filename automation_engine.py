@@ -15,7 +15,7 @@ TERMINAL = ('success','failed','skipped','cancelled')
 
 
 class Engine:
-    def __init__(self, handlers=None, clock=None, inline=False):
+    def __init__(self, handlers=None, clock=None, inline=False,before_backup=None):
         store.initialize()
         self.handlers = handlers or HANDLERS
         raw_clock=clock or (lambda:datetime.now(store.LOCAL))
@@ -27,6 +27,7 @@ class Engine:
         self.lock = threading.RLock()
         self.loop_thread = None
         self.last_error = None
+        self.before_backup=before_backup
 
     def start(self):
         if self.loop_thread and self.loop_thread.is_alive(): return
@@ -162,6 +163,8 @@ class Engine:
 
     def _execute(self, task, run_id):
         try:
+            if task['kind']=='backup' and self.before_backup and not self.before_backup():
+                raise RuntimeError('Drafts could not be saved')
             result = self.handlers[task['kind']](task,self.clock())
             self._success(task,run_id,result)
         except Exception as exc:

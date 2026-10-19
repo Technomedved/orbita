@@ -85,3 +85,13 @@ CI в .github/workflows/checks.yml проверяет ядро на Windows; о�
 ## Установщик · 0.9.2
 
 После чистой desktop-сборки: `python build_installer.py`, затем `python verify_installer_release.py` и `python release_artifacts.py`. Нужен Inno Setup 7.1+ (ORBITA_ISCC или .build-tools/inno). Порядок, AppId, изоляция реальной установки и ограничения: [INSTALLER.md](INSTALLER.md).
+
+## Данные · 0.9.3
+
+`test_backup`/`test_data_ui` включены в общий набор. После сборки запустите
+`verify_backup_release.py` и `verify_distribution_release.py`. Первый проверяет
+нативный UI/CLI и gate; service restore выполняется отдельно от exe, что явно
+отражено в отчёте. `verify_installer_release.py` для этого этапа использует
+сохранённый настоящий bundle 0.9.2 в data/backups/before-data-093/Orbita.
+Новые документы включаются только через release_docs; dev BACKUPS/HANDOFF
+не подмешиваются в поставку. Формат архива: [BACKUPS.md](BACKUPS.md).

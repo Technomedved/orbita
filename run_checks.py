@@ -7,8 +7,8 @@ import time
 import unittest
 from app_config import VERSION
 
-CORE=['test_automation','test_desktop','test_weather','test_learning','test_projects','test_today','test_portability','test_location','test_tomorrow','test_performance','test_onboarding','test_release']
-GUI=['test_glass','test_ui','test_visual','test_location_ui','test_tomorrow_ui']
+CORE=['test_automation','test_desktop','test_weather','test_learning','test_projects','test_today','test_portability','test_location','test_tomorrow','test_performance','test_onboarding','test_release','test_backup']
+GUI=['test_glass','test_ui','test_visual','test_location_ui','test_tomorrow_ui','test_data_ui']
 
 
 def main():
