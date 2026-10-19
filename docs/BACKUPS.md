@@ -10,7 +10,7 @@
 
 ZIP содержит ровно `manifest.json` (до 64 KiB) и `inbox.sqlite` (до 512 MiB).
 Manifest: product=orbita-profile, format, app_version, schema, created с offset,
-automatic, owner, counts, excluded, files с bytes/SHA256. Дубликаты имён,
+automatic, owner, profile_id, counts, excluded, files с bytes/SHA256. Дубликаты имён,
 другие пути, symlink и шифрованные entries отклоняются. Распаковка потоковая
 с реальным лимитом, не только проверкой заголовка. База проверяется через
 integrity_check, whitelist таблиц, revision triggers и модель расписаний.
@@ -42,10 +42,13 @@ prepared → applying → committed; записи через fsync + replace. In
 к отказу доступа, а не попытке угадать содержимое. Проверена смерть процесса;
 физическое отключение питания/неисправность накопителя не моделировались.
 
-Схема 8 → 9 добавляет publication_receipts для dedupe-публикаций и выключенный
+Схема 8 → 9 добавляет стабильный переносимый profile_uuid в settings,
+publication_receipts для dedupe-публикаций и выключенный
 шаблон profile-backup. До миграции обычный проверенный SQLite backup.
 Restore сохраняет terminal receipts актуального устройства для существующих
-task IDs, ключи публикаций и done-состояния совпавших напоминаний. История
+task IDs, ключи публикаций и done-состояния совпавших напоминаний только при
+совпадении profile_uuid. Независимые профили не наследуют чужие done/dedupe
+из-за совпавших числовых run IDs. История
 копии остаётся, delivered помечается, чтобы не повторять старые toasts.
 Общая пауза по умолчанию true, enabled обычных задач/их timezone не меняются.
 Автокопии отключаются, folder очищается, sensor refresh выключается;

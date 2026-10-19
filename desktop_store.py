@@ -4,6 +4,7 @@ from contextlib import contextmanager, closing
 from pathlib import Path
 import sqlite3
 import threading
+from uuid import uuid4
 from datetime import datetime,timedelta
 
 from app_config import LOCAL,data_home,timezone_from_settings
@@ -112,6 +113,7 @@ def _initialize():
                         AFTER {action} ON {table} BEGIN UPDATE revision SET value=value+1 WHERE id=1; END''')
             now = datetime.now(LOCAL)
             existing = {k: json.loads(v) for k,v in db.execute('SELECT key,value FROM settings')}
+            db.execute('INSERT OR IGNORE INTO settings VALUES(?,?)',('profile_uuid',json.dumps(uuid4().hex)))
             defaults = templates()
             if legacy:
                 defaults[0]['enabled']=existing.get('weather_enabled',False)

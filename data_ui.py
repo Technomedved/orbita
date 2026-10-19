@@ -159,7 +159,7 @@ class DataDialog(QDialog):
     def confirm_restore(self,path,metadata):
         names={'projects':'Проекты','tasks':'Автоматизации','events':'События','runs':'Запуски','learning_progress':'Учебные записи','project_steps':'Шаги проектов','project_links':'Ссылки','snoozes':'Отложенные напоминания','learning_profiles':'Учебные профили','publication_receipts':'Ключи защиты публикаций от повторов'}
         summary='\n'.join(f'{names[k]}: {v}' for k,v in metadata['counts'].items())
-        text=f"Копия от {metadata['created']}\nОрбита {metadata['app_version']} · схема {metadata['schema']}\n\n{summary}\n\nПрофиль будет заменён после создания проверенной страховочной копии. Защита от уже обработанных на этом устройстве запусков и JSON-публикаций сохраняется. Приложение перезапустится.\n"+('Плановые задачи останутся на общей паузе.' if self.pause.isChecked() else 'Плановые задачи применят сохранённые правила пропусков. Очередь и отложенные напоминания продолжатся.')
+        text=f"Копия от {metadata['created']}\nОрбита {metadata['app_version']} · схема {metadata['schema']}\n\n{summary}\n\nПрофиль будет заменён после создания проверенной страховочной копии. Для того же профиля сохраняется защита от уже обработанных на этом устройстве запусков и JSON-публикаций. Приложение перезапустится.\n"+('Плановые задачи останутся на общей паузе.' if self.pause.isChecked() else 'Плановые задачи применят сохранённые правила пропусков. Очередь и отложенные напоминания продолжатся.')
         if QMessageBox.question(self,'Восстановить профиль?',text,QMessageBox.Yes|QMessageBox.Cancel,QMessageBox.Cancel)==QMessageBox.Yes:self.start_restore(path)
 
     def start_restore(self,path):

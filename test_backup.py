@@ -68,6 +68,20 @@ class BackupTests(unittest.TestCase):
         self.assertEqual(len(store.runs(task['id'])),1);self.assertEqual(store.runs(task['id'])[0]['status'],'success')
         self.assertIsNone(store.publish('Later','Content',dedupe='later-publish'))
 
+    def test_other_profile_does_not_inherit_unrelated_done_markers(self):
+        now=datetime.now(store.LOCAL)
+        def reminder():
+            task=new_task('Reminder','reminder',{'type':'once','at':(now-timedelta(minutes=1)).isoformat(),'timezone':'UTC'})
+            task['enabled']=True;store.save_task(task);Engine(clock=lambda:now,inline=True).tick()
+        reminder();store.reminder_action(store.events()[0]['id'],'done')
+        store.publish('Only current','Body',dedupe='only-current')
+        other=self.root/'other-profile';other_copies=self.root/'other-copies';other_copies.mkdir()
+        with patch.object(store,'HOME',other):
+            store.initialize();reminder();path=backups.create(other,other_copies)
+        backups.restore(self.home,path)
+        self.assertEqual(store.events()[0]['action_state'],'pending')
+        self.assertIsNotNone(store.publish('Allowed in replaced profile','Body',dedupe='only-current'))
+
     def test_unsafe_broken_large_and_future_archives_do_not_change_data(self):
         store.publish('Keep','Body');path=self.backup();count=len(store.events())
         def future(data):

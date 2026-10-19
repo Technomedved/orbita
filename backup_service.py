@@ -37,6 +37,14 @@ def digest(path):
     with Path(path).open('rb') as stream:return hashlib.file_digest(stream,'sha256').hexdigest()
 
 
+def profile_id(path):
+    with closing(sqlite3.connect(Path(path).resolve().as_uri()+'?mode=ro',uri=True)) as db:
+        row=db.execute("SELECT value FROM settings WHERE key='profile_uuid'").fetchone()
+        value=json.loads(row[0]) if row else None
+    if not isinstance(value,str) or not re.fullmatch('[0-9a-f]{32}',value):raise ValueError('В копии отсутствует идентификатор профиля.')
+    return value
+
+
 def validate_destination(folder,home):
     if not folder or not Path(folder).is_absolute():raise ValueError('Выберите абсолютный путь к папке резервных копий.')
     path=Path(folder)
@@ -119,6 +127,7 @@ def validated_archive(path,work):
     database=work/'inbox.sqlite';info=manifest['files']
     if info!={'inbox.sqlite':{'bytes':database.stat().st_size,'sha256':digest(database)}}:raise ValueError('Контрольная сумма копии не совпала.')
     schema,counts=inspect_database(database)
+    if manifest.get('profile_id')!=profile_id(database):raise ValueError('Идентификатор копии не соответствует профилю.')
     if manifest.get('schema')!=schema or manifest.get('counts')!=counts:raise ValueError('Описание копии не соответствует базе.')
     return manifest
 
@@ -152,7 +161,7 @@ def create(home,folder,automatic=False,keep=7):
                     database_copy(home/'inbox.sqlite',snapshot)
                     if snapshot.stat().st_size>MAX_DATABASE:raise ValueError('Профиль превышает поддерживаемый размер 512 MiB.')
                     schema,counts=inspect_database(snapshot)
-                    manifest={'product':'orbita-profile','format':FORMAT,'app_version':VERSION,'schema':schema,'created':stamp,
+                    manifest={'product':'orbita-profile','format':FORMAT,'app_version':VERSION,'schema':schema,'created':stamp,'profile_id':profile_id(snapshot),
                               'automatic':automatic,'owner':owner,'counts':counts,'excluded':EXCLUDED,
                               'files':{'inbox.sqlite':{'bytes':snapshot.stat().st_size,'sha256':digest(snapshot)}}}
                     with zipfile.ZipFile(temporary,'x',zipfile.ZIP_DEFLATED) as archive:
@@ -225,16 +234,18 @@ def restore(home,archive,pause=True,checkpoint=None):
                 db.execute('UPDATE events SET delivered=1')
                 # Keep terminal slot receipts from this device as well: restoring
                 # yesterday's snapshot must not repeat today's completed actions.
-                for row in current.execute("SELECT task_id,slot,scheduled_at,status,finished FROM runs WHERE status IN ('success','failed','skipped','cancelled')"):
-                    if not db.execute('SELECT 1 FROM tasks WHERE id=?',(row[0],)).fetchone():continue
-                    db.execute('INSERT OR IGNORE INTO runs(task_id,slot,scheduled_at,status,finished) VALUES(?,?,?,?,?)',tuple(row))
-                    db.execute("UPDATE runs SET status=?,finished=?,lease_until=NULL,owner=NULL WHERE task_id=? AND slot=? AND status IN ('running','queued','retry')",(row[3],row[4],row[0],row[1]))
-                for key, in current.execute('SELECT dedupe FROM publication_receipts'):
-                    db.execute('INSERT OR IGNORE INTO publication_receipts VALUES(?)',(key,))
-                for key, in current.execute("SELECT dedupe FROM events WHERE action_state='done' AND dedupe IS NOT NULL"):
-                    db.execute("UPDATE events SET action_state='done' WHERE dedupe=?",(key,))
-                for key,due,status in current.execute("SELECT e.dedupe,s.due,s.status FROM snoozes s JOIN events e ON e.id=s.event_id WHERE s.status!='pending' AND e.dedupe IS NOT NULL"):
-                    db.execute('UPDATE snoozes SET status=? WHERE due=? AND event_id IN (SELECT id FROM events WHERE dedupe=?)',(status,due,key))
+                current_identity=current.execute("SELECT value FROM settings WHERE key='profile_uuid'").fetchone()
+                if current_identity and json.loads(current_identity[0])==metadata['profile_id']:
+                    for row in current.execute("SELECT task_id,slot,scheduled_at,status,finished FROM runs WHERE status IN ('success','failed','skipped','cancelled')"):
+                        if not db.execute('SELECT 1 FROM tasks WHERE id=?',(row[0],)).fetchone():continue
+                        db.execute('INSERT OR IGNORE INTO runs(task_id,slot,scheduled_at,status,finished) VALUES(?,?,?,?,?)',tuple(row))
+                        db.execute("UPDATE runs SET status=?,finished=?,lease_until=NULL,owner=NULL WHERE task_id=? AND slot=? AND status IN ('running','queued','retry')",(row[3],row[4],row[0],row[1]))
+                    for key, in current.execute('SELECT dedupe FROM publication_receipts'):
+                        db.execute('INSERT OR IGNORE INTO publication_receipts VALUES(?)',(key,))
+                    for key, in current.execute("SELECT dedupe FROM events WHERE action_state='done' AND dedupe IS NOT NULL"):
+                        db.execute("UPDATE events SET action_state='done' WHERE dedupe=?",(key,))
+                    for key,due,status in current.execute("SELECT e.dedupe,s.due,s.status FROM snoozes s JOIN events e ON e.id=s.event_id WHERE s.status!='pending' AND e.dedupe IS NOT NULL"):
+                        db.execute('UPDATE snoozes SET status=? WHERE due=? AND event_id IN (SELECT id FROM events WHERE dedupe=?)',(status,due,key))
                 db.execute("UPDATE snoozes SET status='cancelled' WHERE root_id IN (SELECT id FROM events WHERE action_state='done')")
                 db.execute("UPDATE runs SET lease_until=? WHERE status='running'",(datetime.now(timezone.utc).isoformat(),))
             check_database(folder/'incoming.sqlite')
