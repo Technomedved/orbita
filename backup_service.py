@@ -213,8 +213,9 @@ def restore(home,archive,pause=True,checkpoint=None):
                 local={k:v for k,v in current.execute('SELECT key,value FROM settings') if k in DEVICE_KEYS}
                 for key in DEVICE_KEYS:db.execute('DELETE FROM settings WHERE key=?',(key,))
                 for key,value in local.items():db.execute('INSERT INTO settings VALUES(?,?)',(key,value))
+                if 'topmost' not in local:db.execute("INSERT INTO settings VALUES('topmost','false')")
                 db.execute("INSERT OR REPLACE INTO settings VALUES('location_refresh_on_start','false')")
-                if pause:db.execute("INSERT OR REPLACE INTO settings VALUES('paused','true')")
+                db.execute("INSERT OR REPLACE INTO settings VALUES('paused',?)",(json.dumps(bool(pause)),))
                 # Imported device paths never become an automatic write target.
                 for task_id,config in db.execute("SELECT id,config FROM tasks WHERE kind='backup'").fetchall():
                     config=json.loads(config);config['folder']=''

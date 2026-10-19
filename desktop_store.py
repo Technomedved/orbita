@@ -118,6 +118,7 @@ def _initialize():
                 defaults[0]['schedule']['days']=[0,1,2,3,4]
             for task in defaults:
                 task['schedule']['timezone']='Asia/Yekaterinburg' if has_history else 'UTC'
+                if task['kind']=='backup':task['schedule']['timezone']=timezone_from_settings(existing)
                 db.execute('INSERT OR IGNORE INTO tasks VALUES(?,?,?,?,?,?,?,?,?,?,?)',
                     (task['id'],task['name'],task['kind'],int(task['enabled']),json.dumps(task['schedule']),
                      json.dumps(task['config']),task['policy'],task['grace_seconds'],task['max_attempts'],

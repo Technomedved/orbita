@@ -60,10 +60,11 @@ class BackupTests(unittest.TestCase):
     def test_receipts_and_completed_slots_survive_older_snapshot(self):
         now=datetime.now(store.LOCAL)
         task=new_task('Once','reminder',{'type':'once','at':(now-timedelta(minutes=1)).isoformat(),'timezone':'UTC'})
-        task['enabled']=True;store.save_task(task);path=self.backup()
+        task['enabled']=True;store.save_task(task);store.set_setting('paused',True);path=self.backup();store.set_setting('paused',False)
         engine=Engine(clock=lambda:now,inline=True);engine.tick();self.assertEqual(len(store.runs(task['id'])),1)
         store.publish('Later','Content',dedupe='later-publish')
         backups.restore(self.home,path,pause=False);Engine(clock=lambda:now,inline=True).tick()
+        self.assertFalse(store.get_setting('paused'))
         self.assertEqual(len(store.runs(task['id'])),1);self.assertEqual(store.runs(task['id'])[0]['status'],'success')
         self.assertIsNone(store.publish('Later','Content',dedupe='later-publish'))
 
@@ -181,9 +182,11 @@ b.restore(s.HOME,sys.argv[1],checkpoint=crash)
         self.assertNotIn(secret,text);self.assertNotIn(str(self.home),text);self.assertIn('ExecutionError',text)
 
     def test_migration_eight_to_nine_has_checked_backup_and_disabled_template(self):
+        store.set_setting('user_timezone','Europe/Berlin')
         with store.connect() as db:
             db.execute("DELETE FROM tasks WHERE id='profile-backup'");db.execute('DROP TABLE publication_receipts');db.execute('PRAGMA user_version=8')
         store._initialized.discard(str(self.home.resolve()));store.initialize()
         files=list((self.home/'backups').glob('inbox-v8-*.sqlite'));self.assertEqual(len(files),1)
         with closing(sqlite3.connect(files[0])) as db:self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0],'ok')
         self.assertFalse(next(t for t in store.tasks() if t['id']=='profile-backup')['enabled'])
+        self.assertEqual(next(t for t in store.tasks() if t['id']=='profile-backup')['schedule']['timezone'],'Europe/Berlin')
