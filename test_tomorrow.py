@@ -72,11 +72,17 @@ class TomorrowTests(unittest.TestCase):
         self.assertEqual(datetime.fromisoformat(data['timeline'][0]['at']).hour,22)
 
     def test_project_requires_a_reminder_on_the_day(self):
-        undated=projects.create('Без даты','pc');due=projects.create('Завтрашняя печать','print')
-        projects.save_reminder(due,datetime.combine(self.day,time(14),self.zone).isoformat(),True,'Europe/Moscow')
-        data=agenda.snapshot(self.now);self.assertEqual([p['id'] for p in data['projects']],[due])
-        self.assertIsNotNone(data['projects'][0]['next_step']);self.assertEqual(data['counts']['projects'],1)
-        projects.save(due,state='archived');self.assertEqual(agenda.snapshot(self.now)['timeline'],[])
+        # Validation and new_task creation must use the same clock as the day projection.
+        with patch.object(projects,'datetime',wraps=datetime) as project_clock, \
+                patch('automation_models.datetime',wraps=datetime) as model_clock:
+            project_clock.now.return_value=model_clock.now.return_value=self.now.astimezone(store.LOCAL)
+            undated=projects.create('Без даты','pc');due=projects.create('Завтрашняя печать','print')
+            with self.assertRaisesRegex(ValueError,'будущее время'):
+                projects.save_reminder(due,self.now.isoformat(),True,'Europe/Moscow')
+            projects.save_reminder(due,datetime.combine(self.day,time(14),self.zone).isoformat(),True,'Europe/Moscow')
+            data=agenda.snapshot(self.now);self.assertEqual([p['id'] for p in data['projects']],[due])
+            self.assertIsNotNone(data['projects'][0]['next_step']);self.assertEqual(data['counts']['projects'],1)
+            projects.save(due,state='archived');self.assertEqual(agenda.snapshot(self.now)['timeline'],[])
 
     def test_snooze_crossing_midnight_moves_focus_and_deduplicates(self):
         now=self.now.replace(hour=23,minute=50);task=self.task()

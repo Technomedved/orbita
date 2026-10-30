@@ -7,6 +7,7 @@ import sys
 FORBIDDEN_DIRS = {'data', 'dist', 'build', '.venv', '.ui-runtime', '.build-tools', 'history', '__pycache__'}
 FORBIDDEN_NAMES = {'mail.local.json', 'setup-mail.ps1', 'set-mail-login.ps1', 'run.ps1',
                    'install-schedule.ps1', 'notification.glass.json', 'notification.management.json'}
+BACKUP_NAMES = {'.backup-device.json', '.auto-backups.json'}
 SECRET_PATTERNS = [
     re.compile(rb'gh[pousr]' + rb'_[A-Za-z0-9]{30,}'),
     re.compile(rb'github_' + rb'pat_[A-Za-z0-9_]{30,}'),
@@ -16,8 +17,12 @@ SECRET_PATTERNS = [
 
 def findings(name, content):
     path = PurePosixPath(name)
+    lower_name = path.name.lower()
+    # Git paths are POSIX, but Windows backup names are case-insensitive.
+    backup_artifact = (lower_name.endswith('.orbita.zip') or lower_name in BACKUP_NAMES
+                       or any(part.lower() == '.restore' for part in path.parts[:-1]))
     reasons = []
-    if (set(path.parts[:-1]) & FORBIDDEN_DIRS or path.name in FORBIDDEN_NAMES
+    if (backup_artifact or set(path.parts[:-1]) & FORBIDDEN_DIRS or path.name in FORBIDDEN_NAMES
             or path.suffix.lower() in {'.dpapi', '.pem', '.key', '.pfx', '.p12', '.log', '.exe', '.dll'}
             or '.sqlite' in path.name.lower()
             or (path.name.startswith('.env') and path.name != '.env.example')
