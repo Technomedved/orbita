@@ -117,11 +117,18 @@ class WorkflowTests(unittest.TestCase):
         task=next(t for t in store.tasks() if t['id']=='learning-db2'); self.assertFalse(task['enabled'])
         from zoneinfo import ZoneInfo
         now=datetime(2026,10,20,19,30,tzinfo=ZoneInfo(task['schedule']['timezone']))
-        task['enabled']=True; task['created']=(now-timedelta(days=1)).isoformat(); store.save_task(task)
+        task['enabled']=True; task['created']=(now-timedelta(days=1)).astimezone(store.LOCAL).isoformat()
+        # save_task preserves an existing creation date; seed the persisted fixture explicitly.
+        with store.connect() as db:
+            db.execute('UPDATE tasks SET created=? WHERE id=?',(task['created'],task['id']))
+        store.save_task(task)
         engine=Engine(clock=lambda:now,inline=True)
         engine.tick(); engine.tick()
         first=store.events()[0]; self.assertEqual(first['target'],'lesson:db2:diagnostic')
-        learning.start('diagnostic'); store.mark_seen(first['id'])
+        with patch.object(learning,'datetime',wraps=datetime) as clock:
+            clock.now.return_value=now.astimezone(store.LOCAL)
+            learning.start('diagnostic')
+        store.mark_seen(first['id'])
         now+=timedelta(days=2); engine.tick()
         self.assertEqual(len(store.events()),1); self.assertEqual(store.events()[0]['id'],first['id'])
         self.assertIn('Продолжить',store.events()[0]['title'])
