@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://telegram.org; style-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>Орбита · новое дело</title>
+  <script src="https://telegram.org/js/telegram-web-app.js?64"></script>
+  <link rel="stylesheet" href="app.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header><p class="brand">ОРБИТА</p><h1>Новое дело</h1><p class="intro">Выбери дату и повторение. Перед сохранением бот покажет точные параметры.</p></header>
+    <p id="connection" class="notice" role="status" hidden>Открой форму из кнопки в личном чате с ботом. Здесь можно заполнить поля, отправка доступна в Telegram.</p>
+    <form id="planner-form" novalidate>
+      <section class="glass" aria-label="Дело и срок">
+        <label for="title">Что нужно сделать</label>
+        <input id="title" name="title" type="text" placeholder="Название дела" autocomplete="off" required>
+        <div class="date-row">
+          <div><label for="date">Дата <span>необязательно</span></label><input id="date" name="date" type="date"></div>
+          <div><label for="time">Время <span>необязательно</span></label><input id="time" name="time" type="time" step="60"></div>
+        </div>
+        <label for="timezone">Часовой пояс дела</label>
+        <input id="timezone" name="timezone" type="text" list="timezones" value="UTC" autocomplete="off" spellcheck="false" required aria-describedby="zone-help">
+        <datalist id="timezones"><option value="UTC"></option></datalist>
+        <p id="zone-help" class="hint">Проверь IANA-пояс, например Europe/Berlin. Пояс телефона не меняет настройки Орбиты.</p>
+      </section>
+      <section class="glass" aria-label="Повторение">
+        <label for="repeat">Повторять</label>
+        <select id="repeat" name="repeat"><option value="none">Не повторять</option><option value="daily">Каждый день</option><option value="weekly">По дням недели</option></select>
+        <fieldset id="weekdays" hidden><legend>Дни недели</legend><div class="week-grid">
+          <label><input type="checkbox" name="days" value="0"><span>Пн</span></label><label><input type="checkbox" name="days" value="1"><span>Вт</span></label>
+          <label><input type="checkbox" name="days" value="2"><span>Ср</span></label><label><input type="checkbox" name="days" value="3"><span>Чт</span></label>
+          <label><input type="checkbox" name="days" value="4"><span>Пт</span></label><label><input type="checkbox" name="days" value="5"><span>Сб</span></label>
+          <label><input type="checkbox" name="days" value="6"><span>Вс</span></label>
+        </div></fieldset>
+        <label class="check"><input id="notify" name="notify" type="checkbox"><span>Напомнить в выбранное время</span></label>
+        <p class="hint">Без этого выбора дело появится в календаре без нового уведомления.</p>
+      </section>
+      <details class="glass"><summary>Заметка</summary><label class="sr-only" for="notes">Заметка к делу</label><textarea id="notes" name="notes" rows="4" maxlength="20000" placeholder="Дополнительные сведения"></textarea><p class="hint">Форма передаёт текст через Telegram. Длинную заметку можно дополнить в приложении.</p></details>
+      <footer class="action-area"><p id="error" class="error" role="alert" hidden></p><button id="submit" type="submit">Проверить в боте</button><p class="hint">Создание потребует отдельного подтверждения в чате.</p></footer>
+    </form>
+  </main>
+</body>
+</html>
